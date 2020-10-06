@@ -42,4 +42,5 @@ struct json_element_t
     };    
 };
 
+void destroy_json_element(json_element_t *iface);
 json_element_t * create_json_string(const wchar_t *c_str);
