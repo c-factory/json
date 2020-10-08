@@ -2,7 +2,7 @@
 
 int main(void)
 {
-    json_element_t *elem = create_json_string(NULL);
+    json_element_t *elem = create_json_object();
     destroy_json_element(elem);
     return 0;
 }
