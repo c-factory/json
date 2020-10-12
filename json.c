@@ -34,31 +34,14 @@ typedef struct
 
 typedef void (*destructor_t)(json_element_impl_t *elem);
 
-static void json_object_destructor(json_element_impl_t *elem)
-{
-    assert(elem->type = json_object);
-    destroy_tree_map_and_content(&elem->data.object->base, free, (void*)destroy_json_element);
-    free(elem);
-}
-
-
-static void json_array_destructor(json_element_impl_t *elem)
-{
-    assert(elem->type = json_array);
-    destroy_vector_and_content(&elem->data.array->base, (void*)destroy_json_element);
-    free(elem);
-}
-
-static void json_string_destructor(json_element_impl_t *elem)
-{
-    assert(elem->type = json_string);
-    free(elem->data.string);
-    free(elem);
-}
+static void json_null_destructor(json_element_impl_t *elem);
+static void json_object_destructor(json_element_impl_t *elem);
+static void json_array_destructor(json_element_impl_t *elem);
+static void json_string_destructor(json_element_impl_t *elem);
 
 static destructor_t destructors[] =
 {
-    NULL,
+    json_null_destructor,
     json_object_destructor,
     json_array_destructor,
     json_string_destructor,
@@ -66,10 +49,55 @@ static destructor_t destructors[] =
     NULL
 };
 
+static void json_null_destructor(json_element_impl_t *elem)
+{
+    assert(elem->type == json_null);
+    free(elem);
+}
+
+static void json_object_destructor(json_element_impl_t *elem)
+{
+    assert(elem->type == json_object);
+    destroy_tree_map_and_content(&elem->data.object->base, free, (void*)destroy_json_element);
+    free(elem);
+}
+
+static void json_array_destructor(json_element_impl_t *elem)
+{
+    assert(elem->type == json_array);
+    destroy_vector_and_content(&elem->data.array->base, (void*)destroy_json_element);
+    free(elem);
+}
+
+static void json_string_destructor(json_element_impl_t *elem)
+{
+    assert(elem->type == json_string);
+    free(elem->data.string);
+    free(elem);
+}
+
 void destroy_json_element(json_element_t *iface)
 {
     json_element_impl_t *this = (json_element_impl_t*)iface;    
     destructors[this->type](this);
+}
+
+json_null_t * create_json_null()
+{
+    json_element_impl_t *elem = nnalloc(sizeof(json_element_impl_t));
+    elem->parent = NULL;
+    elem->type = json_null;
+    elem->data.object = NULL;
+    return (json_null_t*)elem;
+}
+
+json_null_t * create_json_null_owned_by_array(json_array_t *iface)
+{
+    json_element_impl_t *this = (json_element_impl_t*)iface;
+    json_element_impl_t *elem = (json_element_impl_t*)create_json_null();
+    elem->parent = (json_element_t*)iface;
+    add_item_to_vector(&this->data.array->base, elem);
+    return (json_null_t*)elem;
 }
 
 json_object_t * create_json_object()
@@ -126,13 +154,14 @@ json_string_t * create_json_string_owned_by_array(json_array_t *iface, const wch
 
 typedef wide_string_builder_t * (*simple_string_builder_t)(json_element_impl_t *elem, wide_string_builder_t *builder);
 
+static wide_string_builder_t * json_null_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
 static wide_string_builder_t * json_object_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
 static wide_string_builder_t * json_array_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
 static wide_string_builder_t * json_string_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
 
 static simple_string_builder_t simple_string_builders[] =
 {
-    NULL,
+    json_null_to_simple_string,
     json_object_to_simple_string,
     json_array_to_simple_string,
     json_string_to_simple_string,
@@ -140,9 +169,15 @@ static simple_string_builder_t simple_string_builders[] =
     NULL
 };
 
+static wide_string_builder_t * json_null_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder)
+{
+    assert(elem->type == json_null);
+    return append_wide_string(builder, _W(L"null"));
+}
+
 static wide_string_builder_t * json_object_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder)
 {
-    assert(elem->type = json_object);
+    assert(elem->type == json_object);
     builder = append_wide_string(builder, _W(L"{"));
     map_iterator_t *iter = create_iterator_from_tree_map(&elem->data.object->base);
     bool flag = false;
@@ -163,7 +198,7 @@ static wide_string_builder_t * json_object_to_simple_string(json_element_impl_t 
 
 static wide_string_builder_t * json_array_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder)
 {
-    assert(elem->type = json_array);
+    assert(elem->type == json_array);
     builder = append_wide_string(builder, _W(L"["));
     vector_index_t i;
     vector_t *vector = &elem->data.array->base;
@@ -180,7 +215,7 @@ static wide_string_builder_t * json_array_to_simple_string(json_element_impl_t *
 
 static wide_string_builder_t * json_string_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder)
 {
-    assert(elem->type = json_string);
+    assert(elem->type == json_string);
     return append_formatted_wide_string(builder, L"\"%W\"", *elem->data.string);
 }
 

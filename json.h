@@ -52,6 +52,12 @@ typedef struct
 {
     const json_element_type_t type;
     const json_element_t * const parent;
+} json_null_t;
+
+typedef struct 
+{
+    const json_element_type_t type;
+    const json_element_t * const parent;
     const json_object_data_t * const object;
 } json_object_t;
 
@@ -70,6 +76,8 @@ typedef struct
 } json_string_t;
 
 void destroy_json_element(json_element_t *iface);
+json_null_t * create_json_null();
+json_null_t * create_json_null_owned_by_array(json_array_t *iface);
 json_object_t * create_json_object();
 json_array_t * create_json_array();
 json_string_t * create_json_string(const wchar_t *value);

@@ -19,6 +19,7 @@ int main(void)
     create_json_string_owned_by_array(arr, L"one");
     create_json_string_owned_by_array(arr, L"two");
     create_json_string_owned_by_array(arr, L"three");
+    create_json_null_owned_by_array(arr);
     wide_string_t *wstr = json_element_to_simple_string((json_element_t*)arr);
     wprintf(L"%s", wstr->data);
     free(wstr);
