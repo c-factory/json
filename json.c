@@ -8,11 +8,17 @@
 #include "json.h"
 #include "allocator.h"
 #include "tree_map.h"
+#include "vector.h"
 
 typedef struct
 {
     tree_map_t base;
 } json_object_data_impt_t;
+
+typedef struct
+{
+    vector_t base;
+} json_array_data_impt_t;
 
 typedef struct 
 {
@@ -21,6 +27,7 @@ typedef struct
     union 
     {
         json_object_data_impt_t *object;
+        json_array_data_impt_t *array;
         wide_string_t *string;
     } data;
 } json_element_impl_t;
@@ -31,6 +38,14 @@ static void json_object_destructor(json_element_impl_t *elem)
 {
     assert(elem->type = json_object);
     destroy_tree_map_and_content(&elem->data.object->base, free, (void*)destroy_json_element);
+    free(elem);
+}
+
+
+static void json_array_destructor(json_element_impl_t *elem)
+{
+    assert(elem->type = json_array);
+    destroy_vector_and_content(&elem->data.array->base, (void*)destroy_json_element);
     free(elem);
 }
 
@@ -45,7 +60,7 @@ static destructor_t destructors[] =
 {
     NULL,
     json_object_destructor,
-    NULL,
+    json_array_destructor,
     json_string_destructor,
     NULL,
     NULL
@@ -64,6 +79,15 @@ json_object_t * create_json_object()
     elem->type = json_object;
     elem->data.object = (json_object_data_impt_t*)create_tree_map((void*)compare_wide_strings);
     return (json_object_t*)elem;
+}
+
+json_array_t * create_json_array()
+{
+    json_element_impl_t *elem = nnalloc(sizeof(json_element_impl_t));
+    elem->parent = NULL;
+    elem->type = json_array;
+    elem->data.array = (json_array_data_impt_t*)create_vector();
+    return (json_array_t*)elem;
 }
 
 json_string_t * create_json_string(const wchar_t *value)
@@ -91,16 +115,26 @@ json_string_t * create_json_string_owned_by_object(json_object_t *iface, const w
     return (json_string_t*)new_elem;
 }
 
+json_string_t * create_json_string_owned_by_array(json_array_t *iface, const wchar_t *value)
+{
+    json_element_impl_t *this = (json_element_impl_t*)iface;
+    json_element_impl_t *elem = (json_element_impl_t*)create_json_string(value);
+    elem->parent = (json_element_t*)iface;
+    add_item_to_vector(&this->data.array->base, elem);
+    return (json_string_t*)elem;
+}
+
 typedef wide_string_builder_t * (*simple_string_builder_t)(json_element_impl_t *elem, wide_string_builder_t *builder);
 
 static wide_string_builder_t * json_object_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
+static wide_string_builder_t * json_array_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
 static wide_string_builder_t * json_string_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
 
 static simple_string_builder_t simple_string_builders[] =
 {
     NULL,
     json_object_to_simple_string,
-    NULL,
+    json_array_to_simple_string,
     json_string_to_simple_string,
     NULL,
     NULL
@@ -118,12 +152,29 @@ static wide_string_builder_t * json_object_to_simple_string(json_element_impl_t 
             builder = append_wide_string(builder, _W(L", "));
         flag = true;
         json_pair_t *pair = (json_pair_t*)next_pair(iter);
-        builder = append_formatted_wide_string(builder, L"\"%W\":", *pair->key);
+        builder = append_formatted_wide_string(builder, L"\"%W\": ", *pair->key);
         json_element_impl_t *value = (json_element_impl_t*)pair->value;
         builder = simple_string_builders[value->type](value, builder);
     }
     destroy_map_iterator(iter);
     builder = append_wide_string(builder, _W(L"}"));
+    return builder;
+}
+
+static wide_string_builder_t * json_array_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder)
+{
+    assert(elem->type = json_array);
+    builder = append_wide_string(builder, _W(L"["));
+    vector_index_t i;
+    vector_t *vector = &elem->data.array->base;
+    for (i = 0; i < vector->size; i++)
+    {
+        if (i)
+            builder = append_wide_string(builder, _W(L", "));
+        json_element_impl_t *child = (json_element_impl_t*)vector->data[i];
+        builder = simple_string_builders[child->type](child, builder);
+    }
+    builder = append_wide_string(builder, _W(L"]"));
     return builder;
 }
 
