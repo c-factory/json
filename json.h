@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <wchar.h>
+#include "strings/strings.h"
 
 typedef enum
 {
@@ -20,28 +20,44 @@ typedef enum
 
 typedef struct json_element_t json_element_t;
 
-typedef struct json
+typedef struct
 {
-    const wchar_t * const key;
+    const wide_string_t * const key;
     const json_element_t * const value;
 } json_pair_t;
 
 typedef struct
 {
     const size_t count;
-} json_object_t;
+} json_object_data_t;
 
 struct json_element_t
 {
     const json_element_type_t type;
     const json_element_t * const parent;
-    union data
+    union 
     {
-        const json_object_t * const object;
-        const wchar_t * const string;
-    };    
+        const json_object_data_t * const object;
+        const wide_string_t * const string;
+    } data;    
 };
 
+typedef struct 
+{
+    const json_element_type_t type;
+    const json_element_t * const parent;
+    const json_object_data_t * const object;
+} json_object_t;
+
+typedef struct 
+{
+    const json_element_type_t type;
+    const json_element_t * const parent;
+    const wide_string_t * const value;
+} json_string_t;
+
 void destroy_json_element(json_element_t *iface);
-json_element_t * create_json_object();
-json_element_t * create_json_string(const wchar_t *c_str);
+json_object_t * create_json_object();
+json_string_t * create_json_string(const wchar_t *value);
+json_string_t * create_json_string_owned_by_object(json_object_t *iface, const wchar_t *key, const wchar_t *value);
+wide_string_t * json_element_to_simple_string(json_element_t *iface);

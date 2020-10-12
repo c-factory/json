@@ -1,1 +1,1 @@
-gcc *.c ..\collections\src\*.c -I.\..\collections\include -g -Werror 
+gcc *.c ..\collections\src\*.c ..\strings\strings.c -I.\..\collections\include -I.\.. -g -Werror 
