@@ -28,7 +28,9 @@ typedef struct
     {
         json_object_data_impt_t *object;
         json_array_data_impt_t *array;
-        wide_string_t *string;
+        wide_string_t *string_value;
+        double numeric_value;
+        bool boolean_value;;
     } data;
 } json_element_impl_t;
 
@@ -38,6 +40,7 @@ static void json_null_destructor(json_element_impl_t *elem);
 static void json_object_destructor(json_element_impl_t *elem);
 static void json_array_destructor(json_element_impl_t *elem);
 static void json_string_destructor(json_element_impl_t *elem);
+static void json_number_destructor(json_element_impl_t *elem);
 
 static destructor_t destructors[] =
 {
@@ -45,7 +48,7 @@ static destructor_t destructors[] =
     json_object_destructor,
     json_array_destructor,
     json_string_destructor,
-    NULL,
+    json_number_destructor,
     NULL
 };
 
@@ -72,7 +75,7 @@ static void json_array_destructor(json_element_impl_t *elem)
 static void json_string_destructor(json_element_impl_t *elem)
 {
     assert(elem->type == json_string);
-    free(elem->data.string);
+    free(elem->data.string_value);
     free(elem);
 }
 
@@ -80,6 +83,12 @@ void destroy_json_element(json_element_t *iface)
 {
     json_element_impl_t *this = (json_element_impl_t*)iface;    
     destructors[this->type](this);
+}
+
+static void json_number_destructor(json_element_impl_t *elem)
+{
+    assert(elem->type == json_number);
+    free(elem);
 }
 
 json_null_t * create_json_null()
@@ -124,7 +133,7 @@ json_string_t * create_json_string(const wchar_t *value)
     wide_string_t *string = (wide_string_t*)(elem + 1);
     elem->parent = NULL;
     elem->type = json_string;
-    elem->data.string = duplicate_wide_string(_W(value));
+    elem->data.string_value = duplicate_wide_string(_W(value));
     return (json_string_t*)elem;
 }
 
@@ -152,12 +161,31 @@ json_string_t * create_json_string_owned_by_array(json_array_t *iface, const wch
     return (json_string_t*)elem;
 }
 
+json_string_t * create_json_number(double value)
+{
+    json_element_impl_t *elem = nnalloc(sizeof(json_element_impl_t));
+    elem->parent = NULL;
+    elem->type = json_number;
+    elem->data.numeric_value = value;
+    return (json_string_t*)elem;
+}
+
+json_number_t * create_json_number_owned_by_array(json_array_t *iface, double value)
+{
+    json_element_impl_t *this = (json_element_impl_t*)iface;
+    json_element_impl_t *elem = (json_element_impl_t*)create_json_number(value);
+    elem->parent = (json_element_t*)iface;
+    add_item_to_vector(&this->data.array->base, elem);
+    return (json_number_t*)elem;
+}
+
 typedef wide_string_builder_t * (*simple_string_builder_t)(json_element_impl_t *elem, wide_string_builder_t *builder);
 
 static wide_string_builder_t * json_null_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
 static wide_string_builder_t * json_object_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
 static wide_string_builder_t * json_array_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
 static wide_string_builder_t * json_string_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
+static wide_string_builder_t * json_number_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder);
 
 static simple_string_builder_t simple_string_builders[] =
 {
@@ -165,7 +193,7 @@ static simple_string_builder_t simple_string_builders[] =
     json_object_to_simple_string,
     json_array_to_simple_string,
     json_string_to_simple_string,
-    NULL,
+    json_number_to_simple_string,
     NULL
 };
 
@@ -216,7 +244,13 @@ static wide_string_builder_t * json_array_to_simple_string(json_element_impl_t *
 static wide_string_builder_t * json_string_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder)
 {
     assert(elem->type == json_string);
-    return append_formatted_wide_string(builder, L"\"%W\"", *elem->data.string);
+    return append_formatted_wide_string(builder, L"\"%W\"", *elem->data.string_value);
+}
+
+static wide_string_builder_t * json_number_to_simple_string(json_element_impl_t *elem, wide_string_builder_t *builder)
+{
+    assert(elem->type == json_number);
+    return append_formatted_wide_string(builder, L"\"%f\"", elem->data.numeric_value);
 }
 
 wide_string_t * json_element_to_simple_string(json_element_t *iface)
