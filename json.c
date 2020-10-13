@@ -165,7 +165,6 @@ json_array_t * create_json_array()
 static __inline element_t * instantiate_json_string(const wchar_t *value)
 {
     element_t *elem = nnalloc(sizeof(element_t));
-    wide_string_t *string = (wide_string_t*)(elem + 1);
     elem->type = json_string;
     elem->data.string_value = duplicate_wide_string(_W(value));
     return elem;
@@ -341,4 +340,202 @@ wide_string_t * json_element_to_simple_string(const json_element_base_t *iface)
 {
     element_t *this = (element_t*)iface;    
     return (wide_string_t*)simple_string_builders[this->type](this, NULL);
+}
+
+// --- parser -----------------------------------------------------------------
+
+static __inline bool is_space(wchar_t c)
+{
+    return c == L' ' || c == L'\t' || c == L'\n' || c == L'\r';
+}
+
+static __inline bool is_letter(wchar_t c)
+{
+    return (c >= L'A' && c <= L'Z') || (c >= L'a' && c <= L'z') || c == '_';
+}
+
+static __inline bool is_digit(wchar_t c)
+{
+    return c >= L'0' && c <= L'9';
+}
+
+static __inline bool is_hex_digit(wchar_t c)
+{
+    return (c >= L'0' && c <= L'9') || (c >= L'A' && c <= L'F') || (c >= L'a' && c <= L'f');
+}
+
+static __inline int convert_hex_digit(wchar_t c)
+{
+    if (c >= L'0' && c <= L'9') return c - L'0';
+    if (c >= L'A' && c <= L'F') return c - L'A' + 10;
+    if (c >= L'a' && c <= L'f') return c - L'a' + 10;
+    return -1;
+}
+
+typedef struct
+{
+    wide_string_t *text;
+    size_t index;
+} source_t;
+
+static __inline void init_source(source_t *src, wide_string_t *text)
+{
+    src->text = text;
+    src->index = 0;
+}
+
+static __inline wchar_t get_char(source_t *src)
+{
+    return src->index < src->text->length ? src->text->data[src->index] : L'\0';
+}
+
+static __inline wchar_t next_char(source_t *src)
+{
+    if (src->index < src->text->length)
+    {
+        src->index++;
+        return get_char(src);
+    }
+    return '\0';
+}
+
+static __inline wchar_t get_char_but_not_space(source_t *src)
+{
+    wchar_t c = get_char(src);
+    while(is_space(c))
+    {
+        c = next_char(src);
+    }
+    return c;
+}
+
+static __inline wchar_t next_char_but_not_space(source_t *src)
+{
+    wchar_t c = next_char(src);
+    while(is_space(c))
+    {
+        c = next_char(src);
+    }
+    return c;
+}
+
+static wide_string_t * parse_string(source_t *src)
+{
+    wide_string_builder_t *b = NULL;
+    wchar_t c = get_char(src);
+    while (c != L'\"' && c != L'\0')
+    {
+        if (c == L'\\')
+        {
+            c = next_char(src);
+            switch(c)
+            {
+                case L'"':
+                    b = append_wide_char(b, L'"');
+                    break;
+                case '\\':
+                    b = append_wide_char(b, L'\\');
+                    break;
+                case '/':
+                    b = append_wide_char(b, L'/');
+                    break;
+                case 'b':
+                    b = append_wide_char(b, L'\b');
+                    break;
+                case 'f':
+                    b = append_wide_char(b, L'\f');
+                    break;
+                case 'n':
+                    b = append_wide_char(b, L'\n');
+                    break;
+                case 'r':
+                    b = append_wide_char(b, L'\r');
+                    break;
+                case 't':
+                    b = append_wide_char(b, L'\t');
+                    break;
+                case 'u':
+                {
+                    int k = 0;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        c = next_char(src);
+                        if (!is_hex_digit(c))
+                        {
+                            free(b);
+                            return NULL;
+                        }
+                        k = (k << 4) | convert_hex_digit(c);
+                    }
+                    c = (wchar_t)k;
+                    b = append_wide_char(b, c);
+                    break;					
+                }
+                default:
+                    free(b);
+                    return NULL;
+            }
+        }
+        else
+        {
+            b = append_wide_char(b, c);
+        }
+        c = next_char(src);
+    }
+    if (c == 0)
+    {
+        free(b);
+        return NULL;
+    }
+    next_char(src);
+    return (wide_string_t*)b;
+}
+
+static element_t * parse_element(source_t *src)
+{
+    wchar_t c = get_char_but_not_space(src);
+    
+    if (c == L'\"')
+    {
+        next_char(src);
+        wide_string_t *text = parse_string(src);
+        if (text)
+        {
+            element_t *elem = nnalloc(sizeof(element_t));
+            elem->type = json_string;
+            elem->data.string_value = text;
+            return elem;
+        }
+        return NULL;
+    }
+    else if (is_letter(c))
+    {
+        wide_string_builder_t *b = create_wide_string_builder(8);
+        do
+        {
+            b = append_wide_char(b, c);
+            c = next_char(src);
+        } while (is_letter(c));
+        wide_string_t *ws = (wide_string_t*)b;
+        
+        element_t *result = NULL;
+        if (are_wide_strings_equal(*ws, __W(L"null")))
+            result = instantiate_json_null();
+        else if (are_wide_strings_equal(*ws, __W(L"true")))
+            result = instantiate_json_boolean(true);
+        if (are_wide_strings_equal(*ws, __W(L"false")))
+            result = instantiate_json_boolean(false);
+        return result;
+    }
+
+    return NULL;
+}
+
+json_element_t * parse_json(wide_string_t *text)
+{
+    source_t src;
+    init_source(&src, text);
+    element_t *root = parse_element(&src);
+    root->parent = NULL;
+    return (json_element_t*)root;
 }

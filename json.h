@@ -91,7 +91,10 @@ typedef struct
     const bool value;
 } json_boolean_t;
 
+json_element_t * parse_json(wide_string_t *text);
+
 void destroy_json_element(const json_element_base_t *iface);
+
 json_null_t * create_json_null();
 json_null_t * create_json_null_at_end_of_array(json_array_t *iface);
 
