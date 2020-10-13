@@ -278,19 +278,19 @@ static simple_string_builder_t simple_string_builders[] =
 static wide_string_builder_t * json_null_to_simple_string(element_t *elem, wide_string_builder_t *builder)
 {
     assert(elem->type == json_null);
-    return append_wide_string(builder, _W(L"null"));
+    return append_wide_string(builder, __W(L"null"));
 }
 
 static wide_string_builder_t * json_object_to_simple_string(element_t *elem, wide_string_builder_t *builder)
 {
     assert(elem->type == json_object);
-    builder = append_wide_string(builder, _W(L"{"));
+    builder = append_wide_string(builder, __W(L"{"));
     map_iterator_t *iter = create_iterator_from_tree_map(&elem->data.object->base);
     bool flag = false;
     while(has_next_pair(iter))
     {
         if (flag)
-            builder = append_wide_string(builder, _W(L", "));
+            builder = append_wide_string(builder, __W(L", "));
         flag = true;
         json_pair_t *pair = (json_pair_t*)next_pair(iter);
         builder = append_formatted_wide_string(builder, L"\"%W\": ", *pair->key);
@@ -298,24 +298,24 @@ static wide_string_builder_t * json_object_to_simple_string(element_t *elem, wid
         builder = simple_string_builders[value->type](value, builder);
     }
     destroy_map_iterator(iter);
-    builder = append_wide_string(builder, _W(L"}"));
+    builder = append_wide_string(builder, __W(L"}"));
     return builder;
 }
 
 static wide_string_builder_t * json_array_to_simple_string(element_t *elem, wide_string_builder_t *builder)
 {
     assert(elem->type == json_array);
-    builder = append_wide_string(builder, _W(L"["));
+    builder = append_wide_string(builder, __W(L"["));
     vector_index_t i;
     vector_t *vector = &elem->data.array->base;
     for (i = 0; i < vector->size; i++)
     {
         if (i)
-            builder = append_wide_string(builder, _W(L", "));
+            builder = append_wide_string(builder, __W(L", "));
         element_t *child = (element_t*)vector->data[i];
         builder = simple_string_builders[child->type](child, builder);
     }
-    builder = append_wide_string(builder, _W(L"]"));
+    builder = append_wide_string(builder, __W(L"]"));
     return builder;
 }
 
@@ -334,7 +334,7 @@ static wide_string_builder_t * json_number_to_simple_string(element_t *elem, wid
 static wide_string_builder_t * json_boolean_to_simple_string(element_t *elem, wide_string_builder_t *builder)
 {
     assert(elem->type == json_boolean);
-    return append_wide_string(builder, elem->data.bool_value ? _W(L"true") : _W(L"false"));
+    return append_wide_string(builder, elem->data.bool_value ? __W(L"true") : __W(L"false"));
 }
 
 wide_string_t * json_element_to_simple_string(const json_element_base_t *iface)

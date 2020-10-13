@@ -51,8 +51,8 @@ struct json_element_t
         const json_object_data_t * const object;
         const json_array_data_t * const array;
         const wide_string_t * const string_value;
-        double numeric_value;
-        bool boolean_value;
+        double num_value;
+        bool bool_value;
     } data;    
 };
 
