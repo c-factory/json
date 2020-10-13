@@ -29,8 +29,8 @@ typedef struct
         private_object_data_t *object;
         private_array_data_t *array;
         wide_string_t *string_value;
-        double numeric_value;
-        bool boolean_value;;
+        double num_value;
+        bool bool_value;;
     } data;
 } element_t;
 
@@ -43,6 +43,7 @@ static void json_object_destructor(element_t *elem);
 static void json_array_destructor(element_t *elem);
 static void json_string_destructor(element_t *elem);
 static void json_number_destructor(element_t *elem);
+static void json_boolean_destructor(element_t *elem);
 
 static destructor_t destructors[] =
 {
@@ -51,7 +52,7 @@ static destructor_t destructors[] =
     json_array_destructor,
     json_string_destructor,
     json_number_destructor,
-    NULL
+    json_boolean_destructor
 };
 
 static void json_null_destructor(element_t *elem)
@@ -93,6 +94,12 @@ static void json_number_destructor(element_t *elem)
     free(elem);
 }
 
+static void json_boolean_destructor(element_t *elem)
+{
+    assert(elem->type == json_boolean);
+    free(elem);
+}
+
 // --- null constructors ------------------------------------------------------
 
 static __inline element_t * instantiate_json_null()
@@ -110,7 +117,7 @@ json_null_t * create_json_null()
     return (json_null_t*)elem;
 }
 
-json_null_t * create_json_null_owned_by_array(json_array_t *iface)
+json_null_t * create_json_null_at_end_of_array(json_array_t *iface)
 {
     element_t *this = (element_t*)iface;
     element_t *elem = instantiate_json_null();
@@ -186,7 +193,7 @@ json_string_t * create_json_string_owned_by_object(json_object_t *iface, const w
     return (json_string_t*)new_elem;
 }
 
-json_string_t * create_json_string_owned_by_array(json_array_t *iface, const wchar_t *value)
+json_string_t * create_json_string_at_end_of_array(json_array_t *iface, const wchar_t *value)
 {
     element_t *this = (element_t*)iface;
     element_t *elem = instantiate_json_string(value);
@@ -201,7 +208,7 @@ static __inline element_t * instantiate_json_number(double value)
 {
     element_t *elem = nnalloc(sizeof(element_t));
     elem->type = json_number;
-    elem->data.numeric_value = value;
+    elem->data.num_value = value;
     return elem;
 }
 
@@ -212,13 +219,39 @@ json_number_t * create_json_number(double value)
     return (json_number_t*)elem;
 }
 
-json_number_t * create_json_number_owned_by_array(json_array_t *iface, double value)
+json_number_t * create_json_number_at_end_of_array(json_array_t *iface, double value)
 {
     element_t *this = (element_t*)iface;
     element_t *elem = instantiate_json_number(value);
     elem->parent = (json_element_t*)iface;
     add_item_to_vector(&this->data.array->base, elem);
     return (json_number_t*)elem;
+}
+
+// --- boolean constructors ---------------------------------------------------
+
+static __inline element_t * instantiate_json_boolean(bool value)
+{
+    element_t *elem = nnalloc(sizeof(element_t));
+    elem->type = json_boolean;
+    elem->data.bool_value = value;
+    return elem;
+}
+
+json_boolean_t * create_json_boolean(bool value)
+{
+    element_t *elem = instantiate_json_boolean(value);
+    elem->parent = NULL;
+    return (json_boolean_t*)elem;
+}
+
+json_boolean_t * create_json_boolean_at_end_of_array(json_array_t *iface, bool value)
+{
+    element_t *this = (element_t*)iface;
+    element_t *elem = instantiate_json_boolean(value);
+    elem->parent = (json_element_t*)iface;
+    add_item_to_vector(&this->data.array->base, elem);
+    return (json_boolean_t*)elem;
 }
 
 // --- stringify (to simple string) -------------------------------------------
@@ -230,6 +263,7 @@ static wide_string_builder_t * json_object_to_simple_string(element_t *elem, wid
 static wide_string_builder_t * json_array_to_simple_string(element_t *elem, wide_string_builder_t *builder);
 static wide_string_builder_t * json_string_to_simple_string(element_t *elem, wide_string_builder_t *builder);
 static wide_string_builder_t * json_number_to_simple_string(element_t *elem, wide_string_builder_t *builder);
+static wide_string_builder_t * json_boolean_to_simple_string(element_t *elem, wide_string_builder_t *builder);
 
 static simple_string_builder_t simple_string_builders[] =
 {
@@ -238,7 +272,7 @@ static simple_string_builder_t simple_string_builders[] =
     json_array_to_simple_string,
     json_string_to_simple_string,
     json_number_to_simple_string,
-    NULL
+    json_boolean_to_simple_string
 };
 
 static wide_string_builder_t * json_null_to_simple_string(element_t *elem, wide_string_builder_t *builder)
@@ -294,7 +328,13 @@ static wide_string_builder_t * json_string_to_simple_string(element_t *elem, wid
 static wide_string_builder_t * json_number_to_simple_string(element_t *elem, wide_string_builder_t *builder)
 {
     assert(elem->type == json_number);
-    return append_formatted_wide_string(builder, L"\"%f\"", elem->data.numeric_value);
+    return append_formatted_wide_string(builder, L"\"%f\"", elem->data.num_value);
+}
+
+static wide_string_builder_t * json_boolean_to_simple_string(element_t *elem, wide_string_builder_t *builder)
+{
+    assert(elem->type == json_boolean);
+    return append_wide_string(builder, elem->data.bool_value ? _W(L"true") : _W(L"false"));
 }
 
 wide_string_t * json_element_to_simple_string(const json_element_base_t *iface)

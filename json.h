@@ -93,12 +93,20 @@ typedef struct
 
 void destroy_json_element(const json_element_base_t *iface);
 json_null_t * create_json_null();
-json_null_t * create_json_null_owned_by_array(json_array_t *iface);
+json_null_t * create_json_null_at_end_of_array(json_array_t *iface);
+
 json_object_t * create_json_object();
+
 json_array_t * create_json_array();
+
 json_string_t * create_json_string(const wchar_t *value);
 json_string_t * create_json_string_owned_by_object(json_object_t *iface, const wchar_t *key, const wchar_t *value);
-json_string_t * create_json_string_owned_by_array(json_array_t *iface, const wchar_t *value);
+json_string_t * create_json_string_at_end_of_array(json_array_t *iface, const wchar_t *value);
+
 json_number_t * create_json_number(double value);
-json_number_t * create_json_number_owned_by_array(json_array_t *iface, double value);
+json_number_t * create_json_number_at_end_of_array(json_array_t *iface, double value);
+
+json_boolean_t * create_json_boolean(bool value);
+json_boolean_t * create_json_boolean_at_end_of_array(json_array_t *iface, bool value);
+
 wide_string_t * json_element_to_simple_string(const json_element_base_t *iface);
