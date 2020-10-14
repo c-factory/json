@@ -19,6 +19,12 @@ typedef enum
     json_boolean
 } json_element_type_t;
 
+typedef enum
+{
+    json_ok = 0,
+    json_unknown_symbol
+} json_error_type_t;
+
 typedef struct json_element_t json_element_t;
 
 typedef struct
@@ -91,7 +97,24 @@ typedef struct
     const bool value;
 } json_boolean_t;
 
+typedef struct
+{
+    int row;
+    int column;
+} json_position_t;
+
+#define json_error_text_max_length 16
+
+typedef struct
+{
+    json_position_t where;
+    json_error_type_t type;
+    wide_string_t text;
+    char _buff[sizeof(wchar_t) * (json_error_text_max_length + 1)];
+} json_error_t;
+
 json_element_t * parse_json(wide_string_t *text);
+json_element_t * parse_json_ext(wide_string_t *text, json_error_t *err);
 
 void destroy_json_element(const json_element_base_t *iface);
 

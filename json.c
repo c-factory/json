@@ -84,8 +84,9 @@ static void json_string_destructor(element_t *elem)
 
 void destroy_json_element(const json_element_base_t *iface)
 {
-    element_t *this = (element_t*)iface;    
-    destructors[this->type](this);
+    element_t *this = (element_t*)iface;
+    if (this)
+        destructors[this->type](this);
 }
 
 static void json_number_destructor(element_t *elem)
@@ -376,12 +377,15 @@ typedef struct
 {
     wide_string_t *text;
     size_t index;
+    json_position_t pos;
 } source_t;
 
 static __inline void init_source(source_t *src, wide_string_t *text)
 {
     src->text = text;
     src->index = 0;
+    src->pos.row = 1;
+    src->pos.column = 1;
 }
 
 static __inline wchar_t get_char(source_t *src)
@@ -393,6 +397,20 @@ static __inline wchar_t next_char(source_t *src)
 {
     if (src->index < src->text->length)
     {
+        wchar_t c = src->text->data[src->index];
+        if (c == L'\n')
+        {
+            src->pos.row++;
+            src->pos.column = 1;            
+        }
+        else if (c == L'\r')
+        {
+            src->pos.column = 1;
+        }
+        else
+        {
+            src->pos.column++;
+        }
         src->index++;
         return get_char(src);
     }
@@ -419,7 +437,7 @@ static __inline wchar_t next_char_but_not_space(source_t *src)
     return c;
 }
 
-static wide_string_t * parse_string(source_t *src)
+static wide_string_t * parse_string(source_t *src, json_error_t *err)
 {
     wide_string_builder_t *b = NULL;
     wchar_t c = get_char(src);
@@ -491,14 +509,14 @@ static wide_string_t * parse_string(source_t *src)
     return (wide_string_t*)b;
 }
 
-static element_t * parse_element(source_t *src)
+static element_t * parse_element(source_t *src, json_error_t *err)
 {
     wchar_t c = get_char_but_not_space(src);
     
     if (c == L'\"')
     {
         next_char(src);
-        wide_string_t *text = parse_string(src);
+        wide_string_t *text = parse_string(src, err);
         if (text)
         {
             element_t *elem = nnalloc(sizeof(element_t));
@@ -528,14 +546,31 @@ static element_t * parse_element(source_t *src)
         return result;
     }
 
+    err->text.data[0] = c;
+    err->text.length = 1;
+    err->type = json_unknown_symbol;
     return NULL;
+}
+
+json_element_t * parse_json_ext(wide_string_t *text, json_error_t *perr)
+{
+    source_t src;
+    init_source(&src, text);
+    json_error_t err = { 0 };
+    err.text.data = (wchar_t*)err._buff;
+    element_t *root = parse_element(&src, &err);
+    if (perr)
+    {
+        if (err.type != json_ok)
+            err.where = src.pos;
+        *perr = err;
+    }
+    if (root)
+        root->parent = NULL;
+    return (json_element_t*)root;
 }
 
 json_element_t * parse_json(wide_string_t *text)
 {
-    source_t src;
-    init_source(&src, text);
-    element_t *root = parse_element(&src);
-    root->parent = NULL;
-    return (json_element_t*)root;
+    return parse_json_ext(text, NULL);
 }
