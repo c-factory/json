@@ -26,7 +26,12 @@ typedef enum
     json_incorrect_number_format,
     json_incorrect_escape_character,
     json_missing_closing_quotation_mark_in_string,
-    json_unrecognized_entity
+    json_missing_closing_bracket,
+    json_unrecognized_entity,
+    json_expected_comma_separator,
+    json_expected_colon_separator,
+    json_expected_name,
+    json_expected_element,
 } json_error_type_t;
 
 typedef struct json_element_t json_element_t;

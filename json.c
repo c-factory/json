@@ -82,13 +82,6 @@ static void json_string_destructor(element_t *elem)
     free(elem);
 }
 
-void destroy_json_element(const json_element_base_t *iface)
-{
-    element_t *this = (element_t*)iface;
-    if (this)
-        destructors[this->type](this);
-}
-
 static void json_number_destructor(element_t *elem)
 {
     assert(elem->type == json_number);
@@ -99,6 +92,18 @@ static void json_boolean_destructor(element_t *elem)
 {
     assert(elem->type == json_boolean);
     free(elem);
+}
+
+static __inline void destroy_element(element_t *elem)
+{
+    destructors[elem->type](elem);
+}
+
+void destroy_json_element(const json_element_base_t *iface)
+{
+    element_t *this = (element_t*)iface;
+    if (this)
+        destroy_element(this);
 }
 
 // --- null constructors ------------------------------------------------------
@@ -352,7 +357,12 @@ const wchar_t *str_error[] =
     L"incorrect number format",
     L"incorrect escape character",
     L"missing closing quotation mark in string",
-    L"unrecognized entity"
+    L"missing closing bracket",
+    L"unrecognized entity",
+    L"expected comma as a separator",
+    L"expected colon as a separator",
+    L"expected a name",
+    L"expected an element"
 };
 
 wide_string_t * json_error_to_string(const json_error_t *err)
@@ -456,6 +466,111 @@ static __inline wchar_t next_char_but_not_space(source_t *src)
         c = next_char(src);
     }
     return c;
+}
+
+static wide_string_t * parse_string(source_t *src, json_error_t *err);
+static element_t * parse_element(source_t *src, json_error_t *err);
+
+static element_t * parse_object(source_t *src, json_error_t *err)
+{
+    element_t *obj = instantiate_json_object();
+    size_t count = 0;
+    
+    while(true)
+    {
+        wchar_t c = get_char_but_not_space(src);
+                    
+        if (c == L'\0')
+        {
+            if (err)
+            {
+                err->type = json_missing_closing_bracket;
+                err->text.data[0] = L'}';
+                err->text.length = 1;
+            }
+            destroy_element(obj);
+            return NULL;
+        }
+        if (c == L'}')
+        {
+            next_char(src);
+            return obj;
+        }
+        if (count > 0)
+        {
+            if (c != L',')
+            {
+                if (err)
+                    err->type = json_expected_comma_separator;
+                destroy_element(obj);
+                return NULL;
+            }
+            c = next_char_but_not_space(src);
+            if (c == 0)
+            {
+                if (err)
+                {
+                    err->type = json_missing_closing_bracket;
+                    err->text.data[0] = L'}';
+                    err->text.length = 1;
+                }
+                destroy_element(obj);
+                return NULL;
+            }
+            if (c == L'}')
+            {
+                next_char(src);
+                return obj;
+            }
+        }
+        wide_string_t *name = NULL;
+        if (c == L'\"')
+        {
+            next_char(src);
+            name = parse_string(src, err);
+            if (!name)
+                return NULL;
+        }
+        else if (is_letter(c))
+        {
+            wide_string_builder_t *b = NULL;
+            do
+            {
+                b = append_wide_char(b, c);;
+                c = next_char(src);
+            } while(is_letter(c) || is_digit(c));
+            name = (wide_string_t*)b;
+        }
+        else
+        {
+            if (err)
+                err->type = json_expected_name;
+            destroy_element(obj);
+            return NULL;
+        }
+        c = get_char_but_not_space(src);
+        if (c != L':')
+        {
+            if (err)
+                err->type = json_expected_colon_separator;
+            destroy_element(obj);
+            return NULL;
+        }
+        c = next_char_but_not_space(src);
+        if (c == 0)
+        {
+            if (err)
+                err->type = json_expected_element;
+            destroy_element(obj);
+            return NULL;
+        }
+        element_t *value = parse_element(src, err);
+        if (!value)
+            return NULL;
+        add_pair_to_tree_map(&obj->data.object->base, name, value);
+        value->parent = (json_element_t*)obj;
+        count++;
+    }
 }
 
 static wide_string_t * parse_string(source_t *src, json_error_t *err)
@@ -613,7 +728,12 @@ static element_t * parse_element(source_t *src, json_error_t *err)
 {
     wchar_t c = get_char_but_not_space(src);
     
-    if (c == L'\"')
+    if (c == L'{')
+    {
+        next_char(src);
+        return parse_object(src, err);
+    }
+    else if (c == L'\"')
     {
         next_char(src);
         wide_string_t *text = parse_string(src, err);
