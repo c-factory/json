@@ -22,7 +22,11 @@ typedef enum
 typedef enum
 {
     json_ok = 0,
-    json_unknown_symbol
+    json_unknown_symbol,
+    json_incorrect_number_format,
+    json_incorrect_escape_character,
+    json_missing_closing_quotation_mark_in_string,
+    json_unrecognized_entity
 } json_error_type_t;
 
 typedef struct json_element_t json_element_t;
@@ -136,3 +140,4 @@ json_boolean_t * create_json_boolean(bool value);
 json_boolean_t * create_json_boolean_at_end_of_array(json_array_t *iface, bool value);
 
 wide_string_t * json_element_to_simple_string(const json_element_base_t *iface);
+wide_string_t * json_error_to_string(const json_error_t *err);

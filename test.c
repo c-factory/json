@@ -5,10 +5,21 @@
 
 int main(void)
 {
-    wide_string_t src = __W(L" `\"hello, \"");
+    wide_string_t src = __W(L"45e2");
     json_error_t err;
     json_element_t *root = parse_json_ext(&src, &err);
     
-    destroy_json_element(&root->base);
+    wide_string_t *result;
+    if (root)
+    {
+        result = json_element_to_simple_string(&root->base);
+        destroy_json_element(&root->base);
+    }
+    else
+    {
+        result = json_error_to_string(&err);
+    }    
+    wprintf(L"%s", result->data);
+    free(result);
     return 0;
 }
