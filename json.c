@@ -94,16 +94,11 @@ static void json_boolean_destructor(element_t *elem)
     free(elem);
 }
 
-static __inline void destroy_element(element_t *elem)
-{
-    destructors[elem->type](elem);
-}
-
 void destroy_json_element(const json_element_base_t *iface)
 {
     element_t *this = (element_t*)iface;
     if (this)
-        destroy_element(this);
+        destructors[this->type](this);
 }
 
 // --- null constructors ------------------------------------------------------
@@ -488,7 +483,7 @@ static element_t * parse_object(source_t *src, json_error_t *err)
                 err->text.data[0] = L'}';
                 err->text.length = 1;
             }
-            destroy_element(obj);
+            json_object_destructor(obj);
             return NULL;
         }
         if (c == L'}')
@@ -502,7 +497,7 @@ static element_t * parse_object(source_t *src, json_error_t *err)
             {
                 if (err)
                     err->type = json_expected_comma_separator;
-                destroy_element(obj);
+                json_object_destructor(obj);
                 return NULL;
             }
             c = next_char_but_not_space(src);
@@ -514,7 +509,7 @@ static element_t * parse_object(source_t *src, json_error_t *err)
                     err->text.data[0] = L'}';
                     err->text.length = 1;
                 }
-                destroy_element(obj);
+                json_object_destructor(obj);
                 return NULL;
             }
             if (c == L'}')
@@ -545,7 +540,7 @@ static element_t * parse_object(source_t *src, json_error_t *err)
         {
             if (err)
                 err->type = json_expected_name;
-            destroy_element(obj);
+            json_object_destructor(obj);
             return NULL;
         }
         c = get_char_but_not_space(src);
@@ -553,7 +548,7 @@ static element_t * parse_object(source_t *src, json_error_t *err)
         {
             if (err)
                 err->type = json_expected_colon_separator;
-            destroy_element(obj);
+            json_object_destructor(obj);
             return NULL;
         }
         c = next_char_but_not_space(src);
@@ -561,7 +556,7 @@ static element_t * parse_object(source_t *src, json_error_t *err)
         {
             if (err)
                 err->type = json_expected_element;
-            destroy_element(obj);
+            json_object_destructor(obj);
             return NULL;
         }
         element_t *value = parse_element(src, err);
@@ -569,6 +564,67 @@ static element_t * parse_object(source_t *src, json_error_t *err)
             return NULL;
         add_pair_to_tree_map(&obj->data.object->base, name, value);
         value->parent = (json_element_t*)obj;
+        count++;
+    }
+}
+
+static element_t * parse_array(source_t *src, json_error_t *err)
+{
+    element_t *elem = instantiate_json_array();
+    size_t count = 0;
+    
+    while(true)
+    {
+        wchar_t c = get_char_but_not_space(src);
+                    
+        if (c == L'\0')
+        {
+            if (err)
+            {
+                err->type = json_missing_closing_bracket;
+                err->text.data[0] = L'}';
+                err->text.length = 1;
+            }
+            json_array_destructor(elem);
+            return NULL;
+        }
+        if (c == L']')
+        {
+            next_char(src);
+            return elem;
+        }
+        if (count > 0)
+        {
+            if (c != L',')
+            {
+                if (err)
+                    err->type = json_expected_comma_separator;
+                json_array_destructor(elem);;
+                return NULL;
+            }
+            c = next_char_but_not_space(src);
+            if (c == 0)
+            {
+                if (err)
+                {
+                    err->type = json_missing_closing_bracket;
+                    err->text.data[0] = L']';
+                    err->text.length = 1;
+                }
+                json_array_destructor(elem);;
+                return NULL;
+            }
+            if (c == L']')
+            {
+                next_char(src);
+                return elem;
+            }
+        }
+        element_t *child = parse_element(src, err);
+        if (!child)
+            return NULL;
+        add_item_to_vector(&elem->data.array->base, child);
+        child->parent = (json_element_t*)elem;
         count++;
     }
 }
@@ -732,6 +788,11 @@ static element_t * parse_element(source_t *src, json_error_t *err)
     {
         next_char(src);
         return parse_object(src, err);
+    }
+    else if (c == L'[')
+    {
+        next_char(src);
+        return parse_array(src, err);
     }
     else if (c == L'\"')
     {

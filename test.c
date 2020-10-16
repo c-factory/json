@@ -5,7 +5,7 @@
 
 int main(void)
 {
-    wide_string_t src = __W(L"{ a : 1, \"b\" : true, zzz : {} }");
+    wide_string_t src = __W(L"{ a : 1, \"b\" : true, zzz : [\"hello\", null, {}] }");
     json_error_t err;
     json_element_t *root = parse_json_ext(&src, &err);
     
