@@ -328,7 +328,7 @@ static wide_string_builder_t * json_string_to_simple_string(element_t *elem, wid
 static wide_string_builder_t * json_number_to_simple_string(element_t *elem, wide_string_builder_t *builder)
 {
     assert(elem->type == json_number);
-    return append_formatted_wide_string(builder, L"\"%f\"", elem->data.num_value);
+    return append_formatted_wide_string(builder, L"%f", elem->data.num_value);
 }
 
 static wide_string_builder_t * json_boolean_to_simple_string(element_t *elem, wide_string_builder_t *builder)
@@ -654,6 +654,11 @@ static element_t * parse_element(source_t *src, json_error_t *err)
     else if (is_digit(c))
     {
         return parse_number(src, false, err);
+    }
+    else if (c == '-')
+    {
+        next_char(src);
+        return parse_number(src, true, err);
     }
 
     if (err)

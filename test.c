@@ -5,7 +5,7 @@
 
 int main(void)
 {
-    wide_string_t src = __W(L"45e2");
+    wide_string_t src = __W(L"-45e2");
     json_error_t err;
     json_element_t *root = parse_json_ext(&src, &err);
     
