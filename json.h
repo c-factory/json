@@ -7,6 +7,7 @@
 #pragma once
 
 #include "strings/strings.h"
+#include "numbers/numbers.h"
 #include <stdbool.h>
 
 typedef enum
@@ -66,7 +67,7 @@ struct json_element_t
         const json_object_data_t * const object;
         const json_array_data_t * const array;
         const wide_string_t * const string_value;
-        double num_value;
+        const real_t *num_value;
         bool bool_value;
     } data;    
 };
@@ -97,7 +98,7 @@ typedef struct
 typedef struct 
 {
     const json_element_base_t base;
-    const double value;
+    const real_t *value;
 } json_number_t;
 
 typedef struct 
@@ -138,8 +139,8 @@ json_string_t * create_json_string(const wchar_t *value);
 json_string_t * create_json_string_owned_by_object(json_object_t *iface, const wchar_t *key, const wchar_t *value);
 json_string_t * create_json_string_at_end_of_array(json_array_t *iface, const wchar_t *value);
 
-json_number_t * create_json_number(double value);
-json_number_t * create_json_number_at_end_of_array(json_array_t *iface, double value);
+json_number_t * create_json_number(real_t value);
+json_number_t * create_json_number_at_end_of_array(json_array_t *iface, real_t value);
 
 json_boolean_t * create_json_boolean(bool value);
 json_boolean_t * create_json_boolean_at_end_of_array(json_array_t *iface, bool value);

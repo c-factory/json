@@ -29,7 +29,7 @@ typedef struct
         private_object_data_t *object;
         private_array_data_t *array;
         wide_string_t *string_value;
-        double num_value;
+        number_t *num_value;
         bool bool_value;;
     } data;
 } element_t;
@@ -204,25 +204,30 @@ json_string_t * create_json_string_at_end_of_array(json_array_t *iface, const wc
 
 // --- number constructors ----------------------------------------------------
 
-static __inline element_t * instantiate_json_number(double value)
+static __inline element_t * instantiate_json_number(number_t *value)
 {
-    element_t *elem = nnalloc(sizeof(element_t));
+    element_t *elem = nnalloc(sizeof(element_t) + sizeof(number_t));
     elem->type = json_number;
-    elem->data.num_value = value;
+    elem->data.num_value = (number_t*)(elem + 1);
+    memcpy(elem->data.num_value, value, sizeof(number_t));
     return elem;
 }
 
-json_number_t * create_json_number(double value)
+json_number_t * create_json_number(real_t value)
 {
-    element_t *elem = instantiate_json_number(value);
+    number_t num;
+    init_number_by_real(&num, value);
+    element_t *elem = instantiate_json_number(&num);
     elem->parent = NULL;
     return (json_number_t*)elem;
 }
 
-json_number_t * create_json_number_at_end_of_array(json_array_t *iface, double value)
+json_number_t * create_json_number_at_end_of_array(json_array_t *iface, real_t value)
 {
     element_t *this = (element_t*)iface;
-    element_t *elem = instantiate_json_number(value);
+    number_t num;
+    init_number_by_real(&num, value);
+    element_t *elem = instantiate_json_number(&num);
     elem->parent = (json_element_t*)iface;
     add_item_to_vector(&this->data.array->base, elem);
     return (json_number_t*)elem;
@@ -328,7 +333,9 @@ static wide_string_builder_t * json_string_to_simple_string(element_t *elem, wid
 static wide_string_builder_t * json_number_to_simple_string(element_t *elem, wide_string_builder_t *builder)
 {
     assert(elem->type == json_number);
-    return append_formatted_wide_string(builder, L"%f", elem->data.num_value);
+    char buff[64];
+    print_number(buff, elem->data.num_value);
+    return append_formatted_wide_string(builder, L"%s", buff);
 }
 
 static wide_string_builder_t * json_boolean_to_simple_string(element_t *elem, wide_string_builder_t *builder)
@@ -717,7 +724,7 @@ static wide_string_t * parse_string(source_t *src, json_error_t *err)
     return (wide_string_t*)b;
 }
 
-static element_t * parse_number(source_t *src, bool neg, json_error_t *err)
+static element_t * parse_number_element(source_t *src, bool neg, json_error_t *err)
 {
     string_builder_t *b = NULL;
     wchar_t c = get_char(src);
@@ -761,11 +768,14 @@ static element_t * parse_number(source_t *src, bool neg, json_error_t *err)
         else
             goto error;        
     }
-    double value = atof(b->data);
+    number_t result;
+    parse_number(&result, b->data);
+    if (!result.is_number)
+        goto error;
     free(b);
     if (neg)
-        value = -value;
-    return instantiate_json_number(value);
+        negate_number(&result);
+    return instantiate_json_number(&result);
 
 error:
     if (err)
@@ -834,12 +844,12 @@ static element_t * parse_element(source_t *src, json_error_t *err)
     }
     else if (is_digit(c))
     {
-        return parse_number(src, false, err);
+        return parse_number_element(src, false, err);
     }
     else if (c == '-')
     {
         next_char(src);
-        return parse_number(src, true, err);
+        return parse_number_element(src, true, err);
     }
 
     if (err)
