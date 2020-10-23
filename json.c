@@ -144,6 +144,15 @@ json_object_t * create_json_object()
     return (json_object_t*)elem;
 }
 
+// --- object methods ---------------------------------------------------------
+
+json_pair_t * get_pair_from_json_object(const json_object_data_t *iface, const wchar_t *key)
+{
+    private_object_data_t *object = (private_object_data_t*)iface;
+    wide_string_t key_w = _W(key);
+    return (json_pair_t*)get_pair_from_tree_map(&object->base, &key_w);
+}
+
 // --- array constructors -----------------------------------------------------
 
 static __inline element_t * instantiate_json_array()

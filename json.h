@@ -132,6 +132,7 @@ json_null_t * create_json_null();
 json_null_t * create_json_null_at_end_of_array(json_array_t *iface);
 
 json_object_t * create_json_object();
+json_pair_t * get_pair_from_json_object(const json_object_data_t *iface, const wchar_t *key);
 
 json_array_t * create_json_array();
 
