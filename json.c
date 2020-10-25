@@ -170,6 +170,14 @@ json_array_t * create_json_array()
     return (json_array_t*)elem;
 }
 
+// --- array methods ----------------------------------------------------------
+
+json_element_t * get_element_from_json_array(const json_array_data_t *iface, size_t index)
+{
+    private_array_data_t *array = (private_array_data_t*)iface;
+    return (json_element_t*)get_vector_item(&array->base, index);
+}
+
 // --- string constructors ----------------------------------------------------
 
 static __inline element_t * instantiate_json_string(const wchar_t *value)

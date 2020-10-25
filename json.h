@@ -135,6 +135,7 @@ json_object_t * create_json_object();
 json_pair_t * get_pair_from_json_object(const json_object_data_t *iface, const wchar_t *key);
 
 json_array_t * create_json_array();
+json_element_t * get_element_from_json_array(const json_array_data_t *iface, size_t index);
 
 json_string_t * create_json_string(const wchar_t *value);
 json_string_t * create_json_string_owned_by_object(json_object_t *iface, const wchar_t *key, const wchar_t *value);
