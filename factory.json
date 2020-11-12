@@ -1,0 +1,23 @@
+{
+    "name": "json",
+    "description": "The tiny JSON format parser",
+    "author": "c factory",
+    "type": "library",
+    "sources": "src/*.c",
+    "headers": "include",
+    "depends":
+    [
+        {
+            "name": "collections",
+            "url": ["../collections", "https://github.com/c-factory/collections.git"]
+        },
+        {
+            "name": "strings",
+            "url": ["../strings", "https://github.com/c-factory/strings.git"]
+        },
+        {
+            "name": "numbers",
+            "url": ["../numbers", "https://github.com/c-factory/numbers.git"]
+        }
+    ]
+}

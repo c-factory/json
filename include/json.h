@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "strings/strings.h"
-#include "numbers/numbers.h"
+#include "strings.h"
+#include "numbers.h"
 #include <stdbool.h>
 
 typedef enum
