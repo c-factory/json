@@ -9,15 +9,15 @@
     [
         {
             "name": "collections",
-            "url": ["../collections", "https://github.com/c-factory/collections.git"]
+            "url": "https://github.com/c-factory/collections.git"
         },
         {
             "name": "strings",
-            "url": ["../strings", "https://github.com/c-factory/strings.git"]
+            "url": "https://github.com/c-factory/strings.git"
         },
         {
             "name": "numbers",
-            "url": ["../numbers", "https://github.com/c-factory/numbers.git"]
+            "url": "https://github.com/c-factory/numbers.git"
         }
     ]
 }
